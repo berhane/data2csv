@@ -1,0 +1,126 @@
+#!/usr/bin/env python
+
+import ConfigParser
+import sys
+import subprocess
+import re
+import numpy as np
+
+
+
+def get_floats(shell_cmd):
+    """ Return all the floats for each line """
+
+    string = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE).communicate()[0]
+    string = string.split('\n')
+
+    regex = r'[\-]*\d+\.\d+[eE\-]*\d*'
+
+    if string == ['']:
+        print 'nan:', shell_cmd
+        return 'nan'
+
+    floats = []
+
+    for line in string:
+        numbers = re.findall(regex, line)
+
+        if len(numbers) > 0:
+            floats.append([float(number) for number in numbers])
+
+    return np.array(floats)
+
+
+def config_section_map(section, Config):
+    dict1 = {}
+    options = Config.options(section)
+    for option in options:
+        try:
+            dict1[option] = Config.get(section, option)
+            if dict1[option] == -1:
+                DebugPrint("skip: %s" % option)
+        except:
+            print("exception on %s!" % option)
+            dict1[option] = None
+    return dict1
+
+
+if __name__ == '__main__':
+
+    args = sys.argv[1:]
+
+    usage = """
+get_data <ini structure> <list of molecules>
+    """
+
+    if len(args) < 2:
+        print usage
+        quit()
+
+    ini_file = args[0]
+    structures_file = args[1]
+
+    config = ConfigParser.ConfigParser()
+    config.read(ini_file)
+    sections = config.sections()
+
+    structures = []
+
+    f = open(structures_file)
+    for line in f:
+        structures.append(line.replace("\n", ""))
+
+    f.close()
+
+    data = {}
+    for structure in structures:
+        data[structure] = []
+
+    # TODO structures
+
+    for i, section in enumerate(sections):
+
+        secdic = config_section_map(section, config)
+        grep_cmd = secdic['grep']
+        folder = secdic['folder']
+        extension = secdic['extension']
+
+        unit = secdic['unit']
+
+        indexcol = int(secdic['indexcol'])
+        indexrow = int(secdic['indexrow'])
+
+        for structure in structures:
+
+            cmd = grep_cmd + " " + folder + structure + "." + extension
+
+            floats = get_floats(cmd)
+
+            if isinstance(floats, basestring):
+                value = "nan"
+
+            else:
+                try:
+                    value = floats[indexrow, indexcol]
+                except IndexError:
+                    print "nan:", cmd, floats
+                    value = "nan"
+                    # exit('Wrong row,col index in ini file. Does not match output.')
+
+            data[structure].append(value)
+
+        # change the name of section
+        if unit != "kcal/mol":
+            sections[i] += " [" + unit + "]"
+
+    strprint = "{0}"
+    for x in range(len(sections)):
+        strprint += ", {"+str(x+1)+"}"
+
+    print strprint.format("molecule", *sections)
+
+    for structure in structures:
+        print strprint.format(structure, *data[structure])
+
+
+
