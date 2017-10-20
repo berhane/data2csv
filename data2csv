@@ -1,23 +1,29 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import ConfigParser
 import sys
+import os
 import subprocess
 import re
 import numpy as np
 
-
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 def get_floats(shell_cmd):
     """ Return all the floats for each line """
 
-    string = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE).communicate()[0]
+    FNULL = open(os.devnull, 'w')
+
+    string = subprocess.Popen(shell_cmd, shell=True, stdout=subprocess.PIPE, stderr=FNULL).communicate()[0]
     string = string.split('\n')
 
     regex = r'[\-]*\d+\.\d+[eE\-]*\d*'
 
     if string == ['']:
-        print 'nan:', shell_cmd
+        eprint('nan:', shell_cmd)
         return 'nan'
 
     floats = []
@@ -40,7 +46,7 @@ def config_section_map(section, Config):
             if dict1[option] == -1:
                 DebugPrint("skip: %s" % option)
         except:
-            print("exception on %s!" % option)
+            eprint("exception on %s!" % option)
             dict1[option] = None
     return dict1
 
@@ -54,7 +60,7 @@ get_data <ini structure> <list of molecules>
     """
 
     if len(args) < 2:
-        print usage
+        eprint(usage)
         quit()
 
     ini_file = args[0]
@@ -103,7 +109,7 @@ get_data <ini structure> <list of molecules>
                 try:
                     value = floats[indexrow, indexcol]
                 except IndexError:
-                    print "nan:", cmd, floats
+                    eprint("nan:", cmd, floats)
                     value = "nan"
                     # exit('Wrong row,col index in ini file. Does not match output.')
 
@@ -117,10 +123,10 @@ get_data <ini structure> <list of molecules>
     for x in range(len(sections)):
         strprint += ", {"+str(x+1)+"}"
 
-    print strprint.format("molecule", *sections)
+    print(strprint.format("molecule", *sections))
 
     for structure in structures:
-        print strprint.format(structure, *data[structure])
+        print(strprint.format(structure, *data[structure]))
 
 
 
