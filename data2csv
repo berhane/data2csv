@@ -32,9 +32,18 @@ def get_floats(shell_cmd):
         numbers = re.findall(regex, line)
 
         if len(numbers) > 0:
-            floats.append([float(number) for number in numbers])
+            floats.append([])
+            for number in numbers:
+                try:
+                    number = float(number)
+                except ValueError:
+                    number = float("nan")
 
-    return np.array(floats)
+                floats[-1].append(number)
+
+            # floats.append([float(number) for number in numbers])
+
+    return floats
 
 
 def config_section_map(section, Config):
@@ -87,29 +96,49 @@ get_data <ini structure> <list of molecules>
     for i, section in enumerate(sections):
 
         secdic = config_section_map(section, config)
-        grep_cmd = secdic['grep']
+
+        try:
+            grep_cmd = secdic['grep']
+        except KeyError:
+            grep_cmd = ""
+
+        try:
+            cmd_cmd = secdic['cmd']
+        except KeyError:
+            cmd_cmd = ""
+
         folder = secdic['folder']
+
+        if folder[-1] != "/":
+            folder += "/"
+
         extension = secdic['extension']
-
         unit = secdic['unit']
-
         indexcol = int(secdic['indexcol'])
         indexrow = int(secdic['indexrow'])
 
+        if grep_cmd != "":
+            cmd = grep_cmd + " " + "{:}" + "." + extension
+
+        if cmd_cmd != "":
+            cmd = cmd_cmd
+            cmd = cmd.replace("{:}", "{:}."+extension)
+
         for structure in structures:
 
-            cmd = grep_cmd + " " + folder + structure + "." + extension
-
-            floats = get_floats(cmd)
+            floats = get_floats(cmd.format(folder+structure))
 
             if isinstance(floats, basestring):
                 value = "nan"
 
             else:
                 try:
-                    value = floats[indexrow, indexcol]
+                    value = floats[indexrow][indexcol]
                 except IndexError:
-                    eprint("nan:", cmd, floats)
+
+                    eprint("nan:", cmd)
+                    eprint(floats)
+                    eprint()
                     value = "nan"
                     # exit('Wrong row,col index in ini file. Does not match output.')
 
@@ -127,6 +156,4 @@ get_data <ini structure> <list of molecules>
 
     for structure in structures:
         print(strprint.format(structure, *data[structure]))
-
-
 
